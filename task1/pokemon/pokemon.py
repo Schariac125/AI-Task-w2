@@ -68,11 +68,11 @@ class Pokemon:
         else:
             return
 
-    def receive_damage(self, damage, source="normal"):
+    def receive_damage(self, damage, opponent, source="normal"):
         # 神经损伤来源的伤害无法被闪避，并且无视防御和减伤
         if source == "nerve":
             print(f"{self.name} 受到了神经损伤的伤害，无法闪避！")
-            self.hp -= damage
+            self.hp -= damage*self.type_effectiveness(opponent)
             self.hp = max(0, self.hp)
             print(f"{self.name} 受到了 {damage} 点神经损伤真伤！剩余 HP: {self.hp}")
             if self.hp <= 0:
@@ -86,7 +86,7 @@ class Pokemon:
         # 计算实际伤害并更新 HP
         actual_damage = max(0, damage - self.defense)
         actual_damage = max(0, actual_damage - int(actual_damage * self.reduce))
-        self.hp -= actual_damage
+        self.hp -= actual_damage*self.type_effectiveness(opponent)
         self.hp = max(0, self.hp)
         print(f"{self.name} 受到了 {actual_damage} 点伤害！剩余 HP: {self.hp}")
         if self.hp <= 0:
