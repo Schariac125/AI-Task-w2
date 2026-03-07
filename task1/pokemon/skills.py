@@ -18,7 +18,7 @@ class skill:
 class SeedBomb(skill):
     name = "Seed Bomb"
 
-    def __init__(self, damage: int, activation_chance: int = 15) -> None:
+    def __init__(self, damage: int, activation_chance: float = 0.15) -> None:
         super().__init__()
         self.damage = damage
         self.activation_chance = activation_chance  # 确保激活几率被正确初始化
@@ -31,7 +31,7 @@ class SeedBomb(skill):
         )
 
         # 判断是否触发状态效果
-        if random.randint(1, 100) <= self.activation_chance:
+        if random.random() < self.activation_chance:
             opponent.add_status_effect(effects.PoisonEffect())
             print(f"{opponent.name} 被 {self.name} 毒化了！")
         else:
@@ -175,12 +175,6 @@ class Echoism(skill):
             return
         else:
             stack_gain = self.amount
-            if opponent.paralyzed:
-                stack_gain += self.amount
-                print(
-                    f"{opponent.name} 处于麻痹状态，{self.name} 额外叠加了 {self.amount} 层！"
-                )
-
             opponent.nerve_count += stack_gain
             print(
                 f"{user.name} 使用了 {self.name}, 使 {opponent.name} 的神经损伤层数增加了 {stack_gain} 层！当前层数: {opponent.nerve_count}"

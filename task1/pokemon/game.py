@@ -49,6 +49,7 @@ class Game:
     def choose_computer_team(self):
         sampled = random.sample(self.pokemon_pool, 3)
         self.computer_team = [copy.deepcopy(p) for p in sampled]
+        #这里的拷贝很重要，不要去修改原对象。
         print("电脑的队伍：")
         for p in self.computer_team:
             print(p)
@@ -64,7 +65,7 @@ class Game:
             except ValueError:
                 print("请输入数字编号")
                 continue
-
+            #这里是被pylance狠狠修正了，然后才改成这个，其实这个逻辑应该更好
             if 1 <= idx <= len(self.player_team):
                 if not self.player_team[idx - 1].alive:
                     print("这只宝可梦已经晕倒了，请选择其他宝可梦")
@@ -77,6 +78,7 @@ class Game:
 
     def computer_choose_pokemon(self):
         available_pokemon = [p for p in self.computer_team if p.alive]
+        #还是一个列表推导式，直接筛选出还活着的宝可梦，避免电脑选择已经晕倒的宝可梦
         self.current_computer_pokemon = random.choice(available_pokemon)
         print(f"电脑选择了 {self.current_computer_pokemon}")
 
@@ -102,9 +104,9 @@ class Game:
                 break
             else:
                 print("无效的输入")
-        self.current_player_pokemon.use_skill(
-            self.player_skill, self.current_computer_pokemon
-        )
+            self.current_player_pokemon.use_skill(
+                self.player_skill, self.current_computer_pokemon
+            )
 
     def computer_choose_skill(self):
         self.computer_skill = random.choice(self.current_computer_pokemon.skills)

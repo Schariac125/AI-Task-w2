@@ -121,6 +121,7 @@ class Pokemon:
         has_nerve_damage = any(
             isinstance(effect, effects.NerveDamage) for effect in self.status_effects
         )
+        #判断神经损伤是否在这一次的效果结算中结束，如果结束则把状态重置
         if not has_nerve_damage and self.nerve_damage:
             self.nerve_damage = False
             self.nerve_count = 0
@@ -238,7 +239,7 @@ class ElectricPokemon(Pokemon):
     def electric_ability(self, skill, opponent):
         if self.dodge_is_successful():
             print(
-                f"{self.name} 的 Electric Passive 激活了！反击对手，造成 {self.attack*0.5} 点伤害"
+                f"{self.name} 的 Electric Passive 激活了！反击对手"
             )
             super().use_skill(skill, opponent)
 
