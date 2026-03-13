@@ -3,6 +3,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.edge.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import WebDriverException
 import json
 import random
 import os
@@ -54,7 +55,7 @@ if __name__ == "__main__":
     ids = []
 
     print("正在获取问题列表...")
-    while len(ids) < 20:
+    while len(ids) < 25:
         res = driver.find_elements(By.XPATH, '//div[@class="QuestionItem-title"]//a')
         for item in res:
             link = item.get_attribute("href")
@@ -70,75 +71,62 @@ if __name__ == "__main__":
 
         for link in ids:
             try:
-                print(f"正在爬取: {link}")
                 driver.get(link)
-                wait = WebDriverWait(driver, 10)
-
-                # 显式等待标题出现
-                title_el = wait.until(
+                WebDriverWait(driver, 10).until(
                     EC.presence_of_element_located(
                         (By.CLASS_NAME, "QuestionHeader-title")
                     )
                 )
-                title_text = title_el.text
-
+                title = driver.find_element(
+                    By.XPATH, "//h1[@class='QuestionHeader-title']"
+                ).text
                 try:
-                    detail_el = driver.find_element(
-                        By.CSS_SELECTOR, "span[itemprop='text']"
-                    )
-                    inf = detail_el.text.strip()
-                except:
-                    inf = "该问题无详细描述"
-
-                # 2. 边滚动边抓取回答
-                all_answers = []
-                seen_answers = set()
-                attempts = 0
-                stagnant_rounds = 0
-
-                # 设定抓取目标：比如抓到 10 个不同的回答，或者滚动 10 次
-                # 我实在不会写这个逻辑了，因为知乎有些回答非常长，这样子会让selenium非常难搞
-                # 已被懒加载打败
-                while len(all_answers) < 10 and attempts < 10 and stagnant_rounds < 3:
-                    before_count = len(all_answers)
-                    elements = driver.find_elements(
+                    button = driver.find_element(
                         By.CSS_SELECTOR,
-                        ".List-item .RichContent-inner .RichText.ztext, "
-                        ".AnswerItem .RichContent-inner .RichText.ztext",
+                        ".Button.QuestionRichText-more.FEfUrdfMIKpQDJDqkjte.Button--plain.fEPKGkUK5jyc4fUuT0QP",
                     )
-
-                    for el in elements:
-                        text = el.text.strip()
-                        if not text or text in seen_answers:
+                except:
+                    button = None
+                if button:
+                    button.click()
+                    time.sleep(3)
+                    description = driver.find_element(
+                        By.XPATH, '//span[@class="RichText ztext css-1oz8dhe"]/p'
+                    ).text
+                    time.sleep(2)
+                else:
+                    description = "没有详细描述"
+                driver.execute_script("window.scrollTo(0, 1000);")
+                time.sleep(random.uniform(2, 4))
+                user = set()
+                attempt = 0
+                while len(user) <= 10 and attempt < 15:
+                    answers = driver.find_elements(By.CLASS_NAME, "List-item")
+                    for answer in answers:
+                        try:
+                            user_name = answer.find_element(
+                                By.CLASS_NAME, "css-1gomreu"
+                            ).text
+                            if user_name in user:
+                                continue
+                            else:
+                                user.add(user_name)
+                                content = answer.find_elements(
+                                    By.XPATH,
+                                    '//span[@class="RichText ztext CopyrightRichText-richText css-1oz8dhe"]/p',
+                                )
+                                content_text = ""
+                                for c in content:
+                                    content_text += c.text + "\n"
+                                writer.writerow([title, description, content_text])
+                        except Exception as e:
+                            print(f"处理答案时出错 {link}: {e}")
                             continue
-                        seen_answers.add(text)
-                        all_answers.append(text)
-                        if len(all_answers) >= 10:
-                            break
-
-                    if len(all_answers) == before_count:
-                        stagnant_rounds += 1
-                    else:
-                        stagnant_rounds = 0
-
-                    if len(all_answers) >= 10:
-                        break
-
-                    # 连续几轮没有新回答时，说明已经基本到底或选择器失效
-                    driver.execute_script("window.scrollBy(0, 1200);")
+                    driver.execute_script("window.scrollBy(0, 1000);")
+                    attempt += 1
                     time.sleep(random.uniform(8, 10))
-                    attempts += 1
-
-                # 3. 将所有抓到的回答合并成一个字符串，存入 CSV 的一格中
-                # 这样 CSV 里一个问题就只占一行，结构清晰
-                final_ans_str = "\n\n--- 下一个回答 ---\n\n".join(list(all_answers))
-
-                writer.writerow([title_text, inf, final_ans_str])
-                print(f"成功爬取标题: {title_text}，抓到回答数: {len(all_answers)}")
-
-                time.sleep(random.uniform(8, 10))  # 休息一下再爬下一个链接
-
-            except Exception as e:
+                time.sleep(random.uniform(8, 10))
+            except WebDriverException as e:
                 print(f"连接 {link} 失败: {e}")
                 continue
 
