@@ -1,0 +1,120 @@
+import requests
+import re
+import csv
+import os
+from lxml import etree
+
+# 用于做UA伪装，不做好像也行
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"
+}
+
+
+# Code by Gemini
+# 附件的下载次数是一个js方法返回的数据，要根据抓包工具显示的返回数据再进行解析
+# 槽点是，那个返回的数据包里面基本有我要的很多信息。
+def get_download_count(file_link, file_id):
+    owner_match = re.search(r"owner=(\d+)", file_link)
+    if not owner_match:
+        return ""
+
+    owner = owner_match.group(1)
+    count_url = (
+        "https://jwch.fzu.edu.cn/system/resource/code/news/click/clicktimes.jsp"
+        f"?wbnewsid={file_id}&owner={owner}&type=wbnewsfile&randomid=nattach{file_id}"
+    )
+    response = requests.get(url=count_url, headers=headers)
+    return str(response.json().get("wbshowtimes", ""))
+
+
+# Code by Myself
+if __name__ == "__main__":
+    # 存储信息的csv文件，可以使用excel打开
+    filename = "information.csv"
+    # 使用with可以省去关闭文件的那一步，而且也更安全
+    # 编码格式要选择"utf-8-sig"，不然会爬下来一大堆乱码
+    with open(filename, "w", newline="", encoding="utf-8-sig") as f:
+        # csv不能直接用write方法写入，要先定义一个用于写入的变量
+        # 可以理解为这个变量可以帮助我们写入这个文件
+        writer = csv.writer(f)
+        writer.writerow(
+            ["日期", "发布单位", "标题", "链接", "附件名", "文件id", "下载次数"]
+        )
+        for idx in range(180, 209):
+            # 泥福教务处的网站链接结构
+            url = f"https://jwch.fzu.edu.cn/jxtz/{idx}.htm"
+            # 抓包工具显示这是一个get请求，所以使用get方法
+            page = requests.get(url=url, headers=headers)
+            # 以防万一还是把这个加上
+            page.encoding = "utf-8"
+            # 写Xpath的前提工作
+            tree = etree.HTML(page.text)
+            # 一个Xpath的相对路径，使用这个相对路径可以直接查询到所有这个模块的信息
+            # 不知道为什么，我的chrome好像只能复制出绝对路径
+            data = tree.xpath('//ul[@class="list-gl"]/li')
+            for i in data:
+                # 日期
+                # 日期是藏在这个里面的一个文本，所以要全部截取出来
+                date = (
+                    "".join(i.xpath('./span[@class="doclist_time"]//text()'))
+                    .replace("\r", "")
+                    .replace("\n", "")
+                    .strip()
+                )
+                # 发布单位
+                department = (
+                    "".join(i.xpath("./text()"))
+                    .replace("【", "")
+                    .replace("】", "")
+                    .strip()
+                )
+                # 标题
+                # 因为这个其实是返回一个列表，所以后面要带一个[0]
+                title = i.xpath("./a/@title")[0]
+                # 链接
+                link = i.xpath("./a/@href")[0]
+                # 完整的拼接链接
+                true_link = f"https://jwch.fzu.edu.cn/{link}"
+                res = requests.get(url=true_link, headers=headers)
+                res = res.text
+                tree2 = etree.HTML(res)
+                # 这个是来查找详细页有没有附件链接的
+                data2 = tree2.xpath('//ul[@style="list-style-type:none;"]/li')
+                if data2:
+                    for j in data2:
+                        # 文件下载链接
+                        file_link = f"https://jwch.fzu.edu.cn{j.xpath('./a/@href')[0]}"
+                        # 文件名预处理
+                        raw_name = "".join(j.xpath("./a//text()")).strip()
+                        # 泥福的文件名编码格式纯逆天，我已经不知道怎么去评价了
+                        # 这一行是我问AI出来的，编码格式疑似至少有三种，这个我解决不了
+                        try:
+                            name = raw_name.encode("iso-8859-1").decode("gbk")
+                        except:
+                            try:
+                                name = raw_name.encode("iso-8859-1").decode("utf-8")
+                            except:
+                                name = raw_name
+                        # 文件id
+                        # 这个要一次正则，但是，上面那个js返回的包里面就有
+                        result = re.search(r"wbfileid=(\d+)", file_link).group(1)
+                        # 文件下载次数
+                        download_num = get_download_count(file_link, result)
+                        # 文件详细，要去访问链接下载
+                        file_data = requests.get(url=file_link, headers=headers).content
+                        writer.writerow(
+                            [
+                                date,
+                                department,
+                                title,
+                                true_link,
+                                name,
+                                result,
+                                download_num,
+                            ]
+                        )
+                else:
+                    writer.writerow(
+                        [date, department, title, true_link, "无附件", "-1", "-1"]
+                    )
+    print("爬好了喵")

@@ -1,5 +1,4 @@
 import pokemon
-
 ALL_POKEMON = [
     pokemon.Pikachu(),
     pokemon.Charmander(),
