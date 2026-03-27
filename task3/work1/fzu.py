@@ -38,7 +38,16 @@ if __name__ == "__main__":
         # 可以理解为这个变量可以帮助我们写入这个文件
         writer = csv.writer(f)
         writer.writerow(
-            ["日期", "发布单位", "标题", "链接", "附件名", "文件id", "下载次数"]
+            [
+                "日期",
+                "发布月份",
+                "发布单位",
+                "标题",
+                "链接",
+                "附件名",
+                "文件id",
+                "下载次数",
+            ]
         )
         for idx in range(180, 209):
             # 泥福教务处的网站链接结构
@@ -61,6 +70,8 @@ if __name__ == "__main__":
                     .replace("\n", "")
                     .strip()
                 )
+                # 发布月份
+                month = date.split("-")[1]
                 # 发布单位
                 department = (
                     "".join(i.xpath("./text()"))
@@ -105,6 +116,7 @@ if __name__ == "__main__":
                         writer.writerow(
                             [
                                 date,
+                                month,
                                 department,
                                 title,
                                 true_link,
@@ -115,6 +127,15 @@ if __name__ == "__main__":
                         )
                 else:
                     writer.writerow(
-                        [date, department, title, true_link, "无附件", "-1", "-1"]
+                        [
+                            date,
+                            month,
+                            department,
+                            title,
+                            true_link,
+                            "无附件",
+                            "-1",
+                            "-1",
+                        ]
                     )
     print("爬好了喵")
